@@ -18,7 +18,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        git branch: "${BRANCH}", url: 'https://Qu11et:${GITHUB_TOKEN}@github.com/Qu11et/full-stack-fastapi-template.git'
+        git branch: "${BRANCH}", url: 'https://Qu11et:${GITHUB_TOKEN}@github.com/Qu11et/full-stack-fastapi-template-clone.git'
       }
     }
 
