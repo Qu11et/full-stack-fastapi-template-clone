@@ -4,8 +4,8 @@ pipeline {
   environment {
     BRANCH = "${env.BRANCH_NAME}"
     SSH_USER = 'TaiKhau'
-    GCP_VM_DEV = '34.87.70.80'
-    GCP_VM_PROD = '34.87.10.98'
+    GCP_VM_DEV = '34.143.160.187'
+    GCP_VM_PROD = '35.197.159.76'
     DEPLOY_DIR = "/home/TaiKhau/app"
     // Adding Docker Hub variables
     DOCKER_HUB_CREDS = credentials('dockerhub-credentials')
