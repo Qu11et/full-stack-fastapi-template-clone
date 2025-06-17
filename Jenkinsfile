@@ -91,40 +91,40 @@ pipeline {
             try {
               sh """
                 ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SSH_USER@$target_ip << 'EOF'
-    set -e
-    trap 'echo "[ERROR] Deployment failed on \$HOSTNAME!" >&2; exit 1' ERR
+set -e
+trap 'echo "[ERROR] Deployment failed on \$HOSTNAME!" >&2; exit 1' ERR
 
-    echo "Switching to deployment directory..."
-    cd $DEPLOY_DIR
+echo "Switching to deployment directory..."
+cd $DEPLOY_DIR
 
-    echo "Pulling latest images..."
-    docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
-    docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
+echo "Pulling latest images..."
+docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
+docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
 
-    echo "Stopping existing containers if they exist..."
-    docker stop backend-container frontend-container || true
-    docker rm backend-container frontend-container || true
-    
-    echo "Starting backend container..."
-    docker run -d \\
-      --name backend-container \\
-      --restart unless-stopped \\
-      -p 8000:8000 \\
-      --env-file .env \\
-      ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
-    
-    echo "Starting frontend container..."
-    docker run -d \\
-      --name frontend-container \\
-      --restart unless-stopped \\
-      -p 80:80 \\
-      ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
-      
-    echo "Containers started successfully. Checking status..."
-    docker ps | grep -E "backend-container|frontend-container"
+echo "Stopping existing containers if they exist..."
+docker stop backend-container frontend-container || true
+docker rm backend-container frontend-container || true
 
-    echo "[SUCCESS] Deployment finished on \$HOSTNAME"
-    EOF
+echo "Starting backend container..."
+docker run -d \\
+  --name backend-container \\
+  --restart unless-stopped \\
+  -p 8000:8000 \\
+  --env-file .env \\
+  ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
+
+echo "Starting frontend container..."
+docker run -d \\
+  --name frontend-container \\
+  --restart unless-stopped \\
+  -p 80:80 \\
+  ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
+  
+echo "Containers started successfully. Checking status..."
+docker ps | grep -E "backend-container|frontend-container"
+
+echo "[SUCCESS] Deployment finished on \$HOSTNAME"
+EOF
               """
             } catch (err) {
               error "[DEPLOY ERROR] SSH deploy to ${target_ip} failed: ${err.message}"
