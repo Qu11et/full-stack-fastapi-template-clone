@@ -79,35 +79,35 @@ pipeline {
 
     stage('Deploy') {
       steps {
-        sshagent(['gcp-vm-ssh-key']) {
+        withCredentials([file(credentialsId: 'ssh-private-key-file', variable: 'SSH_KEY')]) {
           script {
             def branch = env.BRANCH_NAME ?: env.GIT_BRANCH
             def target_ip = (branch == 'Dev') ? GCP_VM_DEV : GCP_VM_PROD
 
-            echo "Deploying branch ${branch} to VM ${target_ip}"
+            echo "Deploying to branch: ${branch}, target VM: ${target_ip}"
 
             try {
               sh """
-              ssh -o StrictHostKeyChecking=no $SSH_USER@$target_ip << 'EOF'
+              ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SSH_USER@$target_ip << 'EOF'
                 set -e
-                trap 'echo "[ERROR] Deployment failed on \$HOSTNAME!" >&2' ERR
+                trap 'echo "[ERROR] Deployment failed on \$HOSTNAME!" >&2; exit 1' ERR
 
-                echo "Navigating to deployment directory..."
+                echo "Switching to deployment directory..."
                 cd $DEPLOY_DIR
 
-                echo "Pulling backend and frontend Docker images..."
+                echo "Pulling latest images..."
                 docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
                 docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
 
-                echo "Restarting containers..."
+                echo "Restarting services..."
                 docker compose down
                 docker compose up -d
 
-                echo "[SUCCESS] Deployment complete on \$HOSTNAME"
+                echo "[SUCCESS] Deployment finished on \$HOSTNAME"
               EOF
               """
             } catch (err) {
-              error "[DEPLOY ERROR] Deployment to ${target_ip} failed: ${err.message}"
+              error "[DEPLOY ERROR] SSH deploy to ${target_ip} failed: ${err.message}"
             }
           }
         }
