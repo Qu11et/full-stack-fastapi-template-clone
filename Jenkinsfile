@@ -81,17 +81,34 @@ pipeline {
       steps {
         sshagent(['gcp-vm-ssh-key']) {
           script {
-            def target_ip = (BRANCH == 'Dev') ? GCP_VM_DEV : GCP_VM_PROD
+            def branch = env.BRANCH_NAME ?: env.GIT_BRANCH
+            def target_ip = (branch == 'Dev') ? GCP_VM_DEV : GCP_VM_PROD
 
-            sh """
-              ssh -o StrictHostKeyChecking=no $SSH_USER@$target_ip << EOF
+            echo "Deploying branch ${branch} to VM ${target_ip}"
+
+            try {
+              sh """
+              ssh -o StrictHostKeyChecking=no $SSH_USER@$target_ip << 'EOF'
+                set -e
+                trap 'echo "[ERROR] Deployment failed on \$HOSTNAME!" >&2' ERR
+
+                echo "Navigating to deployment directory..."
                 cd $DEPLOY_DIR
-                docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
-                docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
+
+                echo "Pulling backend and frontend Docker images..."
+                docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${branch}
+                docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${branch}
+
+                echo "Restarting containers..."
                 docker compose down
                 docker compose up -d
+
+                echo "[SUCCESS] Deployment complete on \$HOSTNAME"
               EOF
-            """
+              """
+            } catch (err) {
+              error "[DEPLOY ERROR] Deployment to ${target_ip} failed: ${err.message}"
+            }
           }
         }
       }
