@@ -19,6 +19,8 @@ pipeline {
     stage('Checkout') {
       steps {
         git branch: "${BRANCH}", url: 'https://Qu11et:${GITHUB_TOKEN}@github.com/Qu11et/full-stack-fastapi-template-clone.git'
+        sh 'ls -la'  // Show workspace contents
+        sh 'pwd'     // Show current directory
       }
     }
 
@@ -29,12 +31,12 @@ pipeline {
         script {
           if (BRANCH == 'dev') {
             withCredentials([file(credentialsId: 'env-dev', variable: 'ENV_FILE')]) {
-              sh 'cp $ENV_FILE backend/.env'
+              sh 'cp $ENV_FILE ./.env'
               echo "Development environment file copied from credentials"
             }
           } else if (BRANCH == 'main') {
             withCredentials([file(credentialsId: 'env-prod', variable: 'ENV_FILE')]) {
-              sh 'cp $ENV_FILE backend/.env'
+              sh 'cp $ENV_FILE ./.env'
               echo "Production environment file copied from credentials"
             }
           }
