@@ -96,8 +96,8 @@ pipeline {
                 cd $DEPLOY_DIR
 
                 echo "Pulling backend and frontend Docker images..."
-                docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${branch}
-                docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${branch}
+                docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
+                docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
 
                 echo "Restarting containers..."
                 docker compose down
