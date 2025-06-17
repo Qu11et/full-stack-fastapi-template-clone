@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    BRANCH = "${env.BRANCH_NAME}"
+    BRANCH = "${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'dev'}"
     SSH_USER = 'TaiKhau'
     GCP_VM_DEV = '34.143.160.187'
     GCP_VM_PROD = '35.197.159.76'
@@ -27,12 +27,12 @@ pipeline {
         echo "Running on branch: ${BRANCH}"
 
         script {
-          if (BRANCH == 'Dev') {
+          if (BRANCH == 'dev') {
             withCredentials([file(credentialsId: 'env-dev', variable: 'ENV_FILE')]) {
               sh 'cp $ENV_FILE backend/.env'
               echo "Development environment file copied from credentials"
             }
-          } else if (BRANCH == 'Main') {
+          } else if (BRANCH == 'main') {
             withCredentials([file(credentialsId: 'env-prod', variable: 'ENV_FILE')]) {
               sh 'cp $ENV_FILE backend/.env'
               echo "Production environment file copied from credentials"
@@ -79,34 +79,36 @@ pipeline {
 
     stage('Deploy') {
       steps {
-        script {
-          def branch = env.BRANCH_NAME ?: env.GIT_BRANCH
-          def tag = branch
-          def deployDir = "/home/jenkins/deployment"
-          def envFile = (branch == "Dev") ? ".env.dev" : ".env.prod"
+        withCredentials([file(credentialsId: 'ssh-private-key-file', variable: 'SSH_KEY')]) {
+          script {
+            def branch = ${BRANCH}
+            def target_ip = (branch == 'dev') ? GCP_VM_DEV : GCP_VM_PROD
 
-          echo "Deploying ${tag} environment locally on Jenkins VM..."
+            echo "Deploying to branch: ${branch}, target VM: ${target_ip}"
 
-          try {
-            sh """
-            set -e
-            cd ${deployDir}
+            try {
+              sh """
+              ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SSH_USER@$target_ip << 'EOF'
+                set -e
+                trap 'echo "[ERROR] Deployment failed on \$HOSTNAME!" >&2; exit 1' ERR
 
-            echo "Pulling latest Docker images..."
-            docker pull your-docker-username/my-backend:${tag}
-            docker pull your-docker-username/my-frontend:${tag}
+                echo "Switching to deployment directory..."
+                cd $DEPLOY_DIR
 
-            echo "Setting correct .env file..."
-            cp ${envFile} .env
+                echo "Pulling latest images..."
+                docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${branch}
+                docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${branch}
 
-            echo "Restarting containers..."
-            docker compose down
-            docker compose up -d
+                echo "Restarting services..."
+                docker compose down
+                docker compose up -d
 
-            echo "[SUCCESS] ${tag} deployed successfully"
-            """
-          } catch (err) {
-            error "[DEPLOY ERROR] Local deployment failed: ${err.message}"
+                echo "[SUCCESS] Deployment finished on \$HOSTNAME"
+              EOF
+              """
+            } catch (err) {
+              error "[DEPLOY ERROR] SSH deploy to ${target_ip} failed: ${err.message}"
+            }
           }
         }
       }
