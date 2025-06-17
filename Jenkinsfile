@@ -123,7 +123,7 @@ docker run -d \\
 echo "Containers started successfully. Checking status..."
 docker ps | grep -E "backend-container|frontend-container"
 
-echo "[SUCCESS] Deployment finished on \$HOSTNAME"
+echo "[SUCCESS] Deployment finished for the 16th time on \$HOSTNAME"
 EOF
               """
             } catch (err) {
