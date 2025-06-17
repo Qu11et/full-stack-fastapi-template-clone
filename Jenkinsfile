@@ -101,9 +101,27 @@ pipeline {
                 docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
                 docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
 
-                echo "Restarting services..."
-                docker compose down
-                docker compose up -d
+                echo "Stopping existing containers if they exist..."
+                docker stop backend-container frontend-container || true
+                docker rm backend-container frontend-container || true
+                
+                echo "Starting backend container..."
+                docker run -d \\
+                  --name backend-container \\
+                  --restart unless-stopped \\
+                  -p 8000:8000 \\
+                  --env-file .env \\
+                  ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
+                
+                echo "Starting frontend container..."
+                docker run -d \\
+                  --name frontend-container \\
+                  --restart unless-stopped \\
+                  -p 80:80 \\
+                  ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
+                  
+                echo "Containers started successfully. Checking status..."
+                docker ps | grep -E "backend-container|frontend-container"
 
                 echo "[SUCCESS] Deployment finished on \$HOSTNAME"
               EOF
