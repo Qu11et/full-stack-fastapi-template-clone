@@ -117,7 +117,7 @@ echo "Starting frontend container..."
 docker run -d \\
   --name frontend-container \\
   --restart unless-stopped \\
-  -p 80:80 \\
+  -p 5173:5173 \\
   ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
   
 echo "Containers started successfully. Checking status..."
