@@ -2,10 +2,10 @@ pipeline {
   agent any
 
   environment {
-    BRANCH = "${env.BRANCH_NAME}"
+    BRANCH = "${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'dev'}"
     SSH_USER = 'TaiKhau'
-    GCP_VM_DEV = '34.87.70.80'
-    GCP_VM_PROD = '34.87.10.98'
+    GCP_VM_DEV = '34.143.160.187'
+    GCP_VM_PROD = '35.197.159.76'
     DEPLOY_DIR = "/home/TaiKhau/app"
     // Adding Docker Hub variables
     DOCKER_HUB_CREDS = credentials('dockerhub-credentials')
@@ -19,6 +19,8 @@ pipeline {
     stage('Checkout') {
       steps {
         git branch: "${BRANCH}", url: 'https://Qu11et:${GITHUB_TOKEN}@github.com/Qu11et/full-stack-fastapi-template-clone.git'
+        sh 'ls -la'  // Show workspace contents
+        sh 'pwd'     // Show current directory
       }
     }
 
@@ -27,14 +29,14 @@ pipeline {
         echo "Running on branch: ${BRANCH}"
 
         script {
-          if (BRANCH == 'Dev') {
+          if (BRANCH == 'dev') {
             withCredentials([file(credentialsId: 'env-dev', variable: 'ENV_FILE')]) {
-              sh 'cp $ENV_FILE backend/.env'
+              sh 'cp $ENV_FILE ./.env'
               echo "Development environment file copied from credentials"
             }
-          } else if (BRANCH == 'Main') {
+          } else if (BRANCH == 'main') {
             withCredentials([file(credentialsId: 'env-prod', variable: 'ENV_FILE')]) {
-              sh 'cp $ENV_FILE backend/.env'
+              sh 'cp $ENV_FILE ./.env'
               echo "Production environment file copied from credentials"
             }
           }
@@ -79,19 +81,54 @@ pipeline {
 
     stage('Deploy') {
       steps {
-        sshagent(['gcp-vm-ssh-key']) {
+        withCredentials([file(credentialsId: 'ssh-private-key-file', variable: 'SSH_KEY')]) {
           script {
-            def target_ip = (BRANCH == 'Dev') ? GCP_VM_DEV : GCP_VM_PROD
+            //def branch = ${BRANCH}
+            def target_ip = (BRANCH == 'dev') ? GCP_VM_DEV : GCP_VM_PROD
 
-            sh """
-              ssh -o StrictHostKeyChecking=no $SSH_USER@$target_ip << EOF
-                cd $DEPLOY_DIR
-                docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
-                docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
-                docker compose down
-                docker compose up -d
-              EOF
-            """
+            echo "Deploying to branch: ${BRANCH}, target VM: ${target_ip}"
+
+            try {
+              sh """
+                ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SSH_USER@$target_ip << 'EOF'
+set -e
+trap 'echo "[ERROR] Deployment failed on \$HOSTNAME!" >&2; exit 1' ERR
+
+echo "Switching to deployment directory..."
+cd $DEPLOY_DIR
+
+echo "Pulling latest images..."
+docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
+docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
+
+echo "Stopping existing containers if they exist..."
+docker stop backend-container frontend-container || true
+docker rm backend-container frontend-container || true
+
+echo "Starting backend container..."
+docker run -d \\
+  --name backend-container \\
+  --restart unless-stopped \\
+  -p 8000:8000 \\
+  --env-file .env \\
+  ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
+
+echo "Starting frontend container..."
+docker run -d \\
+  --name frontend-container \\
+  --restart unless-stopped \\
+  -p 5173:5173 \\
+  ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
+  
+echo "Containers started successfully. Checking status..."
+docker ps | grep -E "backend-container|frontend-container"
+
+echo "[SUCCESS] Deployment finished for the 16th time on \$HOSTNAME"
+EOF
+              """
+            } catch (err) {
+              error "[DEPLOY ERROR] SSH deploy to ${target_ip} failed: ${err.message}"
+            }
           }
         }
       }
