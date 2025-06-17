@@ -81,10 +81,10 @@ pipeline {
       steps {
         withCredentials([file(credentialsId: 'ssh-private-key-file', variable: 'SSH_KEY')]) {
           script {
-            def branch = ${BRANCH}
-            def target_ip = (branch == 'dev') ? GCP_VM_DEV : GCP_VM_PROD
+            //def branch = ${BRANCH}
+            def target_ip = (BRANCH == 'dev') ? GCP_VM_DEV : GCP_VM_PROD
 
-            echo "Deploying to branch: ${branch}, target VM: ${target_ip}"
+            echo "Deploying to branch: ${BRANCH}, target VM: ${target_ip}"
 
             try {
               sh """
@@ -96,8 +96,8 @@ pipeline {
                 cd $DEPLOY_DIR
 
                 echo "Pulling latest images..."
-                docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${branch}
-                docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${branch}
+                docker pull ${DOCKER_IMAGE_PREFIX}/my-backend:${BRANCH}
+                docker pull ${DOCKER_IMAGE_PREFIX}/my-frontend:${BRANCH}
 
                 echo "Restarting services..."
                 docker compose down
